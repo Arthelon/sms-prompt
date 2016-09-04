@@ -2,48 +2,59 @@ const path = require("path")
 const os = require("os")
 const BASE_PATH = path.join(os.homedir(), ".sms-prompt.json")
 const fs = require("fs")
+const inquirer = require("inquirer")
+const twilio = require("twilio")
 
 const resetCredentials = () => {
-    fs.writeFile(BASE_PATH, "{}", (err) => {
-        if (err) {
-            console.log(err)
-        }
-    })
-}
+    return inquirer.prompt([
+        {type: "input", "name": "twilioSid", message: "Enter twilio SID"},
+        {type: "input", "name": "twilioToken", message: "Enter twilio auth token"},
+        {type: "input", "name": "phoneNumber", message: "Enter your phone number", validate: function(number) {
+            const done = this.async()
+            validateNumber(number).then(valid => {
+                if (valid) {
+                    done(null, true)
+                } else {
+                    done("the number you entered is invalid")
+                }
+            })
+        }}
 
-const setCredentials = (ctx) => {
-    ctx.prompt([
-        {type: "input", "name": "twilio-sid", message: "Enter twilio SID"},
-        {type: "input", "name": "twilio-token", message: "Enter twilio auth token"}
-    ]).then(answers => {
-        fs.writeFile(BASE_PATH, JSON.stringify(answers), (err) => {
+    ]).then(config => {
+        fs.writeFile(BASE_PATH, JSON.stringify(config), (err) => {
             if (err)
                 console.log(err)
         })
-        console.log(answers)
-        return answers
+        return config
     })
 }
 
 const readCredentialsFromDisk = () => {
-    try {
-        const configFileStats = fs.statSync(BASE_PATH)
-        if (!configFileStats.isFile()) {
-            resetCredentials()
-            return {};
-        } else {
-            return JSON.parse(fs.readFileSync(BASE_PATH, 'utf-8'))
+    return new Promise((resolve) => {
+        try {
+            const configFileStats = fs.statSync(BASE_PATH)
+            if (!configFileStats.isFile()) {
+                resetCredentials().then(config => {
+                    resolve(config)
+                })
+            } else {
+                resolve(JSON.parse(fs.readFileSync(BASE_PATH, 'utf-8')))
+            }
+        } catch (err) {
+            if (!(err && err.code === 'ENOENT')) {
+                console.log("Unknown error occurred")
+            }
+            return resetCredentials().then(config => {
+                resolve(config)
+            })
         }
-    } catch (err) {
-        if (!(err && err.code === 'ENOENT')) {
-            console.log("Unknown error occurred, reset config file")
-        }
-        resetCredentials()
-        return {};
-    }
+    })
 }
 
 const validateNumber = (number, client) => {
+    if (!client) {
+        client = new twilio.LookupsClient("string", "token")
+    }
     return client.phoneNumbers(number).get().then(number => {
         return true
     }, err => {
@@ -53,7 +64,6 @@ const validateNumber = (number, client) => {
 
 Object.assign(exports, {
     validateNumber,
-    setCredentials,
     resetCredentials,
     readCredentialsFromDisk
 })
