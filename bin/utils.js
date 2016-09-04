@@ -35,7 +35,6 @@ const readCredentialsFromDisk = () => {
             return JSON.parse(fs.readFileSync(BASE_PATH, 'utf-8'))
         }
     } catch (err) {
-        console.log(err)
         if (!(err && err.code === 'ENOENT')) {
             console.log("Unknown error occurred, reset config file")
         }
@@ -44,7 +43,16 @@ const readCredentialsFromDisk = () => {
     }
 }
 
+const validateNumber = (number, client) => {
+    return client.phoneNumbers(number).get().then(number => {
+        return true
+    }, err => {
+        return false
+    })
+}
+
 Object.assign(exports, {
+    validateNumber,
     setCredentials,
     resetCredentials,
     readCredentialsFromDisk

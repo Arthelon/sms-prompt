@@ -2,11 +2,28 @@
 const vorpal = require("vorpal")()
 const fs = require("fs")
 const utils = require("./utils")
+const twilio = require("twilio")
 
-let config = utils.readCredentialsFromDisk()
+const config = utils.readCredentialsFromDisk()
+const client = twilio(config["twilio-sid"], config["twilio-token"])
+const lookupClient = new twilio.LookupsClient(config["twilio-sid"], config["twilio-token"])
 
 vorpal
-    .command("send", "Send sms message", {})
+    .command("send <message> to <number>", "Send sms message", {})
+    .types({
+        string: ["message"]
+    })
+    .validate(function(args) {
+        vorpal.log(args)
+        utils.validateNumber(args.number, lookupClient).then(function(succeeded) {
+            if (succeeded) {
+                return true
+            } else {
+                vorpal.log("Invalid Number")
+                return false
+            }
+        })
+    })
     .action(function(args, cb) {
         if (!Object.keys(config).length)
             utils.setCredentials(this)
