@@ -9,23 +9,30 @@ utils.readCredentialsFromDisk().then(config => {
     const lookupClient = new twilio.LookupsClient(config.twilioSid, config.twilioToken)
 
     vorpal
-        .command("send <message> to <number>", "Send sms message", {})
+        .command("send <number> <message>", "Send sms message to specified number", {})
         .types({
-            string: ["message"]
+            string: ["number", "message"]
         })
         .validate(function(args) {
-            vorpal.log(args)
-            utils.validateNumber(args.number, lookupClient).then(function(succeeded) {
-                if (succeeded) {
+            utils.validateNumber(args.number, lookupClient).then(function(resp) {
+                if (typeof resp !== "object") {
                     return true
                 } else {
-                    vorpal.log("Invalid Number")
+                    vorpal.log("The number you entered is invalid")
                     return false
                 }
             })
         })
         .action(function(args, cb) {
-
+            client.sendMessage({
+                to: "+" + args.number, //MONKEY PATCHED AUTOCONVERT OF ARG TYPE ERROR
+                from: config.phoneNumber,
+                body: args.message
+            }).then(resp => {
+                cb()
+            }, err => {
+                vorpal.log(err)
+            })
         })
 
     //Parse command-line arguments

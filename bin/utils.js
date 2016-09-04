@@ -9,23 +9,32 @@ const resetCredentials = () => {
     return inquirer.prompt([
         {type: "input", "name": "twilioSid", message: "Enter twilio SID"},
         {type: "input", "name": "twilioToken", message: "Enter twilio auth token"},
-        {type: "input", "name": "phoneNumber", message: "Enter your phone number", validate: function(number) {
-            const done = this.async()
-            validateNumber(number).then(valid => {
-                if (valid) {
-                    done(null, true)
+        {type: "input", "name": "phoneNumber", message: "Enter your phone number"}
+    ]).then(config => {
+        const client = new twilio.LookupsClient(config.twilioSid, config.twilioToken)
+        new Promise((resolve, reject) => {
+            validateNumber(config.phoneNumber, client).then(resp => {
+                if (typeof resp !== "object") {
+                    resolve()
                 } else {
-                    done("the number you entered is invalid")
+                    let message = resp.message
+                    if (resp.status == 401) {
+                        message = "Invalid credentials"
+                    } else if (resp.status == 404) {
+                        message = "Invalid phone number"
+                    }
+                    reject(message)
                 }
             })
-        }}
-
-    ]).then(config => {
-        fs.writeFile(BASE_PATH, JSON.stringify(config), (err) => {
-            if (err)
-                console.log(err)
+        }).then(() => {
+            fs.writeFile(BASE_PATH, JSON.stringify(config), (err) => {
+                if (err)
+                    console.log(err)
+            })
+            return config
+        }, err => {
+            console.log(err)
         })
-        return config
     })
 }
 
@@ -52,13 +61,12 @@ const readCredentialsFromDisk = () => {
 }
 
 const validateNumber = (number, client) => {
-    if (!client) {
-        client = new twilio.LookupsClient("string", "token")
-    }
     return client.phoneNumbers(number).get().then(number => {
         return true
     }, err => {
-        return false
+        if (err) {
+            return err
+        }
     })
 }
 
