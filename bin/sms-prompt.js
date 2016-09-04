@@ -35,6 +35,13 @@ utils.readCredentialsFromDisk().then(config => {
             })
         })
 
+    vorpal
+        .catch("", 'Catches empty command')
+        .action(function(args, cb) {
+            this.log("Please enter a command (Enter \"help\" for full list)")
+            cb();
+        })
+
     //Parse command-line arguments
     vorpal
         .delimiter("sms-prompt$")
